@@ -1,6 +1,5 @@
-use std::fs::{File, self};
-use std::path::Path;
-use std::{fs::OpenOptions, path::PathBuf};
+use std::fs::{File, self, OpenOptions};
+use std::path::{PathBuf, Path};
 use std::io::{Error, ErrorKind};
 
 use home;
@@ -16,6 +15,22 @@ pub enum ConfigSetting {
 struct Config {
     name: String,
     email: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Remote {
+    remote: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct LocalConfig {
+    head: String,
+    remotes: Vec<Remote>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Branch {
+    commits: Vec<String>,
 }
 
 fn get_global_path() -> Result<PathBuf, Error> {
@@ -84,17 +99,35 @@ pub fn try_install() -> Result<Option<String>, Error> {
     }
 
     match get_local_path() {
-        Ok(_) => Ok(Some("Get repository already initialized".to_owned())),
+        Ok(_) => return Ok(Some("Get repository already initialized".to_owned())),
         Err(e) => match e.kind() {
             ErrorKind::NotFound => {
                 match fs::create_dir("./.get/") {
-                    Ok(_) => Ok(None),
-                    Err(e) => Err(e),
+                    Ok(_) => (),
+                    Err(e) => return Err(e),
                 }
             },
-            _ => Err(e)
+            _ => return Err(e)
         }
-    }
+    };
+
+    let local_path = PathBuf::from("./.get/");
+    fs::create_dir(local_path.join("stage"))?;
+    fs::create_dir(local_path.join("objects"))?;
+    let local_config_file = OpenOptions::new().write(true).create(true).open(local_path.join("config.yaml"))?;
+    let local_config = LocalConfig{ head: "master".to_owned(), remotes: Vec::new() };
+    serde_yaml::to_writer(&local_config_file, &local_config).unwrap();
+
+    match fs::create_dir(local_path.join("branches/")) {
+        Ok(_) => (),
+        Err(e) => return Err(e),
+    };
+
+    let main_file = OpenOptions::new().write(true).create(true).open(local_path.join("branches/main.yaml"))?;
+    let main_branch = Branch { commits: Vec::new(), };
+    serde_yaml::to_writer(&main_file, &main_branch).unwrap();
+
+    Ok(None)
 }
 
 
