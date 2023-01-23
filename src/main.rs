@@ -1,7 +1,10 @@
+use std::path::PathBuf;
+
 use structopt::StructOpt;
 
 mod init;
 mod config;
+mod add;
 
 #[derive(Debug, StructOpt)]
 enum ConfigOptions {
@@ -32,6 +35,12 @@ struct Email {
 }
 
 #[derive(StructOpt, Debug)]
+struct Add {
+    #[structopt(name = "FILE", parse(from_os_str))]
+    files: Vec<PathBuf>
+}
+
+#[derive(StructOpt, Debug)]
 #[structopt(name = "get")]
 enum Opt {
 
@@ -42,7 +51,7 @@ enum Opt {
     Config(Config),
 
     /// Add a file to the staging area
-    Add,
+    Add(Add),
 
     /// Commit the staged files
     Commit,
@@ -93,6 +102,16 @@ fn main() {
                         Err(e) => println!("Error updating email: {}", e),
                     }
                 },
+            }
+        },
+
+        Opt::Add(files) => {
+            match add::try_add(files.files) {
+                Ok(opt) => match opt {
+                    Some(msg) => println!("{}", msg),
+                    None => println!("Sucessfully added files"),
+                },
+                Err(e) => println!("Error adding filse: {}", e),
             }
         },
         _ => (),
